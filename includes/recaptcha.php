@@ -96,6 +96,7 @@ function recaptcha_verify(string $expectedAction, ?string $token = null): bool
 
 function recaptcha_widget(string $action): string
 {
+    static $scriptLoaded = false;
     $allowed = ['login', 'verify_otp', 'resend_otp', 'change_password', 'forgot_password'];
     if (!in_array($action, $allowed, true)) {
         return '';
@@ -104,7 +105,8 @@ function recaptcha_widget(string $action): string
     $keyJson = json_encode($siteKey, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
     $actionJson = json_encode($action, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
     $script = '';
-    if ($siteKey !== '') {
+    if ($siteKey !== '' && !$scriptLoaded) {
+        $scriptLoaded = true;
         $src = 'https://www.google.com/recaptcha/api.js?render=' . rawurlencode($siteKey);
         $script = '<script src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"></script>';
     }

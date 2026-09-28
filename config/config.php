@@ -29,6 +29,9 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/recaptcha.php';
+require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/account_security.php';
+require_once __DIR__ . '/../includes/otp.php';
 foreach ([
     'GeminiService.php',
     'AIContextBuilder.php',

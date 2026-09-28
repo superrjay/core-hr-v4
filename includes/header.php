@@ -70,6 +70,8 @@ $isManager = hasRole('MANAGER');
         <h2 class="font-display text-xl font-bold mt-1"><?= e($pageTitle) ?></h2>
       </div>
       <div class="flex items-center gap-3">
+        <?= notification_bell_html() ?>
+        <?= change_password_link_html() ?>
         <span class="rounded-full bg-teal-50 text-teal-700 px-3 py-1 text-xs font-bold"><?= e($user['role_name'] ?? 'USER') ?></span>
         <a href="<?= url('auth/logout.php') ?>" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold">Sign out</a>
       </div>
@@ -81,3 +83,4 @@ $isManager = hasRole('MANAGER');
       <?php if ($message = flash('error')): ?>
         <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><?= e($message) ?></div>
       <?php endif; ?>
+      <?= otp_enforcement_banner_html() ?>

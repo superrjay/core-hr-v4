@@ -48,7 +48,7 @@ function regenerate_session_id(): void
 }
 function establish_login_session(int $userId, int $sessionVersion): void
 {
-    unset($_SESSION['pending_2fa']);
+    unset($_SESSION['pending_2fa'], $_SESSION['pending_reset']);
     regenerate_session_id();
     $_SESSION['user_id'] = $userId;
     $_SESSION['last_activity'] = time();
@@ -68,7 +68,7 @@ function current_user(bool $reset = false): ?array
     static $user = false;
     if ($reset) { $user = false; return null; }
     if ($user !== false) return $user;
-    if (!empty($_SESSION['pending_2fa']) || empty($_SESSION['user_id'])) return $user = null;
+    if (!empty($_SESSION['pending_2fa']) || !empty($_SESSION['pending_reset']) || empty($_SESSION['user_id'])) return $user = null;
     try {
         $statement = db()->prepare('SELECT u.*, r.name AS role_name, CONCAT(e.first_name, " ", e.last_name) AS employee_name FROM users u JOIN roles r ON r.id = u.role_id LEFT JOIN employees e ON e.id = u.employee_id WHERE u.id = ? AND u.is_active = 1 LIMIT 1');
         $statement->execute([$_SESSION['user_id']]);
@@ -163,17 +163,26 @@ function require_auth(): array
         redirect('auth/login.php');
     }
     $_SESSION['last_activity'] = time();
+    if (user_must_change_password() && !request_is_password_change_page()) {
+        redirect('auth/change-password.php');
+    }
     return $user;
 }
 function require_api_session(callable $reject): void
 {
-    if (!empty($_SESSION['pending_2fa'])) { $reject(); exit; }
+    if (!empty($_SESSION['pending_2fa']) || !empty($_SESSION['pending_reset'])) { $reject(); exit; }
     if (!current_user()) { $reject(); exit; }
     if (session_is_idle()) {
         $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
         audit_as($userId, 'SESSION_EXPIRED', 'users', $userId, 'AUTH', 'DENIED');
         destroy_auth_session();
         $reject();
+        exit;
+    }
+    if (user_must_change_password()) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Password change required.'], JSON_UNESCAPED_SLASHES);
         exit;
     }
     $_SESSION['last_activity'] = time();
@@ -254,7 +263,7 @@ function notify_hr_reviewers(PDO $pdo, string $title, string $message, string $t
 {
     $reviewers = $pdo->query("SELECT DISTINCT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE u.is_active = 1 AND r.name IN ('ADMIN','HR')")->fetchAll();
     foreach ($reviewers as $reviewer) {
-        create_notification($pdo, (int) $reviewer['id'], $title, $message, $type, $relatedId);
+        notify_user($pdo, (int) $reviewer['id'], 'HR_REVIEW', $title, $message, true);
     }
 }
 function ensure_system_rbac(): void
@@ -365,10 +374,23 @@ function render_template(string $content, array $employee): string
     }
     return preg_replace('/\{\{[^}]+\}\}/', '', $content) ?? $content;
 }
-function lifecycle(PDO $pdo, int $employeeId, string $eventType, array $changes, string $reason, string $effectiveDate): void { $userId = (int) $_SESSION['user_id']; $before = phase2_require_employee($pdo, $employeeId); $pdo->beginTransaction(); try { $set = []; $params = []; foreach ($changes as $field => $value) { $set[] = $field . '=?'; $params[] = $value; } if (!$set) throw new InvalidArgumentException('No lifecycle change supplied.'); $params[] = $employeeId; $pdo->prepare('UPDATE employees SET ' . implode(',', $set) . ' WHERE id=?')->execute($params); $after = phase2_require_employee($pdo, $employeeId); $history = [$employeeId, $eventType, $before['department_id'], $before['position_id'], $before['branch_id'], $before['employment_status'], $after['department_id'], $after['position_id'], $after['branch_id'], $after['employment_status'], $effectiveDate, $reason, $userId]; $pdo->prepare('INSERT INTO employment_histories (employee_id,event_type,previous_department_id,previous_position_id,previous_branch_id,previous_status,department_id,position_id,branch_id,new_status,effective_date,reason,performed_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($history); $pdo->prepare('INSERT INTO audit_logs (user_id,action,entity_type,entity_id,ip_address) VALUES (?,?,?,?,?)')->execute([$userId, strtoupper($eventType), 'employees', $employeeId, $_SERVER['REMOTE_ADDR'] ?? null]); $pdo->commit(); } catch (Throwable $exception) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $exception; } }
+function lifecycle(PDO $pdo, int $employeeId, string $eventType, array $changes, string $reason, string $effectiveDate): void { $userId = (int) $_SESSION['user_id']; $before = phase2_require_employee($pdo, $employeeId); $pdo->beginTransaction(); try { $set = []; $params = []; foreach ($changes as $field => $value) { $set[] = $field . '=?'; $params[] = $value; } if (!$set) throw new InvalidArgumentException('No lifecycle change supplied.'); $params[] = $employeeId; $pdo->prepare('UPDATE employees SET ' . implode(',', $set) . ' WHERE id=?')->execute($params); $after = phase2_require_employee($pdo, $employeeId); $history = [$employeeId, $eventType, $before['department_id'], $before['position_id'], $before['branch_id'], $before['employment_status'], $after['department_id'], $after['position_id'], $after['branch_id'], $after['employment_status'], $effectiveDate, $reason, $userId]; $pdo->prepare('INSERT INTO employment_histories (employee_id,event_type,previous_department_id,previous_position_id,previous_branch_id,previous_status,department_id,position_id,branch_id,new_status,effective_date,reason,performed_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($history); $pdo->prepare('INSERT INTO audit_logs (user_id,action,entity_type,entity_id,ip_address) VALUES (?,?,?,?,?)')->execute([$userId, strtoupper($eventType), 'employees', $employeeId, $_SERVER['REMOTE_ADDR'] ?? null]); $pdo->commit(); notify_linked_employee($pdo, $employeeId, array_keys($changes), 'Your employment record was updated.'); } catch (Throwable $exception) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $exception; } }
 function require_employee_user(): array { $user = require_roles(['EMPLOYEE']); if (empty($user['employee_id'])) { http_response_code(403); exit('No employee record is linked to this account.'); } return $user; }
 function employee_owner(PDO $pdo, array $user): array { return phase2_require_employee($pdo, (int) $user['employee_id']); }
-function create_notification(PDO $pdo, int $userId, string $title, string $message, string $type = 'INFO', ?int $relatedId = null): void { $pdo->prepare('INSERT INTO notifications (user_id,title,message,type,related_record_id) VALUES (?,?,?,?,?)')->execute([$userId,$title,$message,$type,$relatedId]); }
+function create_notification(PDO $pdo, int $userId, string $title, string $message, string $type = 'INFO', ?int $relatedId = null, ?string $eventKey = null): int
+{
+    static $hasEventKey = null;
+    if ($hasEventKey === null) {
+        $columns = $pdo->query('SHOW COLUMNS FROM notifications')->fetchAll(PDO::FETCH_COLUMN);
+        $hasEventKey = in_array('event_key', $columns, true);
+    }
+    if ($hasEventKey) {
+        $pdo->prepare('INSERT INTO notifications (user_id,title,message,type,related_record_id,event_key) VALUES (?,?,?,?,?,?)')->execute([$userId, $title, $message, $type, $relatedId, $eventKey]);
+    } else {
+        $pdo->prepare('INSERT INTO notifications (user_id,title,message,type,related_record_id) VALUES (?,?,?,?,?)')->execute([$userId, $title, $message, $type, $relatedId]);
+    }
+    return (int) $pdo->lastInsertId();
+}
 function ensure_ai_tables(PDO $pdo): void
 {
     $pdo->exec("CREATE TABLE IF NOT EXISTS profile_generations (
@@ -420,9 +442,13 @@ function review_change_request(PDO $pdo, int $requestId, int $reviewerId, string
         else throw new RuntimeException('A rejection reason is required.');
         $pdo->prepare('UPDATE profile_change_requests SET status=?,reviewed_by=?,reviewed_at=NOW(),review_reason=? WHERE id=?')->execute([$status,$reviewerId,$remarks,$requestId]);
         $pdo->prepare('INSERT INTO audit_logs (user_id,action,entity_type,entity_id,ip_address) VALUES (?,?,?,?,?)')->execute([$reviewerId,'REQUEST_'.$status,'profile_change_requests',$requestId,$_SERVER['REMOTE_ADDR'] ?? null]);
-        $user = $pdo->prepare('SELECT id FROM users WHERE employee_id=? LIMIT 1'); $user->execute([$request['employee_id']]); $employeeUser = $user->fetch(); if ($employeeUser) create_notification($pdo,(int)$employeeUser['id'],'Profile request update',$message,$type,$requestId);
         $pdo->commit();
     } catch (Throwable $exception) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $exception; }
+    $label = $fields[$request['requested_field']]['label'];
+    $notice = $decision === 'APPROVED'
+        ? 'Your profile change request for ' . $label . ' was approved.'
+        : 'Your profile change request for ' . $label . ' was rejected.';
+    notify_linked_employee($pdo, (int) $request['employee_id'], [$label], $notice);
 }
 
 ensure_system_rbac();
