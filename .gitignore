@@ -1,0 +1,10 @@
+# Local runtime and secrets
+.env
+.env.*
+!.env.example
+/vendor/
+/.idea/
+/.vscode/
+.DS_Store
+/storage/logs/*
+!/storage/logs/.gitkeep

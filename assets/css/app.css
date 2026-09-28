@@ -1,0 +1,7 @@
+body { font-family: 'DM Sans', sans-serif; background: #f5f7f9; color: #17212b; }
+.font-display { font-family: 'Space Grotesk', sans-serif; }
+.sidebar-link { transition: background .2s, color .2s; }
+.sidebar-link:hover, .sidebar-link.active { background: #e7f6f2; color: #087f6b; }
+.metric-card { border-top: 3px solid #0c9b82; }
+.field { display: block; width: 100%; margin-top: .5rem; border: 1px solid #cbd5e1; border-radius: .5rem; padding: .7rem .85rem; font-weight: 400; background: #fff; }
+.field:focus { outline: 2px solid #99f6e4; border-color: #0f766e; }

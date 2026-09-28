@@ -1,0 +1,2 @@
+<?php
+require_once __DIR__.'/bootstrap.php';$id=integration_id();$q=db()->prepare('SELECT id employee_id,employee_number,employment_status,employment_type FROM employees WHERE id=?');$q->execute([$id]);$data=$q->fetch();if(!$data)integration_response('Employee not found.',404);integration_response($data);

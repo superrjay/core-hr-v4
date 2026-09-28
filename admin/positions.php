@@ -1,0 +1,1 @@
+<?php $_GET['type'] = 'positions'; require __DIR__ . '/catalog.php';
