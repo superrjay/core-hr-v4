@@ -1,0 +1,1 @@
+<?php $_GET['type'] = 'departments'; require __DIR__ . '/catalog.php';

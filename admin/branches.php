@@ -1,0 +1,1 @@
+<?php $_GET['type'] = 'branches'; require __DIR__ . '/catalog.php';

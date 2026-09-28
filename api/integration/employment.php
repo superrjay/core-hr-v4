@@ -1,0 +1,2 @@
+<?php
+require_once __DIR__.'/bootstrap.php';$id=integration_id();$q=db()->prepare('SELECT e.id employee_id,e.employment_status,e.employment_type,e.department_id,e.position_id,e.branch_id,e.date_hired,d.name department,p.name position,b.name branch FROM employees e LEFT JOIN departments d ON d.id=e.department_id LEFT JOIN positions p ON p.id=e.position_id LEFT JOIN branches b ON b.id=e.branch_id WHERE e.id=?');$q->execute([$id]);$data=$q->fetch();if(!$data)integration_response('Employee not found.',404);integration_response($data);

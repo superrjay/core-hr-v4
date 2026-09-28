@@ -1,0 +1,2 @@
+document.querySelectorAll('[data-confirm]').forEach((element) => { element.addEventListener('click', (event) => { if (!window.confirm(element.dataset.confirm)) event.preventDefault(); }); });
+document.querySelectorAll('[data-menu-toggle]').forEach((button) => { button.addEventListener('click', () => document.querySelector(button.dataset.menuToggle)?.classList.toggle('hidden')); });
