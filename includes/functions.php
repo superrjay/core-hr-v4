@@ -15,7 +15,7 @@ function verify_csrf(): void
     if ($expected === '' || !is_string($token) || !hash_equals($expected, $token)) {
         $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
         audit_as($userId, 'CSRF_FAILED', 'security', null, 'AUTH', 'DENIED', ['uri' => (string) ($_SERVER['REQUEST_URI'] ?? '')]);
-        http_response_code(419);
+        header('HTTP/1.1 419 Authentication Timeout', true, 419);
         if (request_wants_json()) {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['error' => 'Invalid security token. Please go back and try again.'], JSON_UNESCAPED_SLASHES);

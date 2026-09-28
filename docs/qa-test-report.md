@@ -1,5 +1,7 @@
 # QA TEST REPORT
 
+The 2026-09-28 security retest is recorded in [qa-security-report.md](qa-security-report.md). Current forms use the configured CSRF field name, which defaults to `_token`.
+
 Core HR (Group 4) — full-system QA of `core-hr-v2.zip` after extraction and targeted bug fixes.
 
 Date: 2026-09-20

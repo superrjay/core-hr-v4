@@ -55,6 +55,7 @@ Set these keys in the server `.env`. `.env.example` has placeholders only.
 | `MAIL_DRIVER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | SMTP. `MAIL_PASSWORD` stays on the server. |
 | `APPLICATION_STATUS_SECRET` | 64 hex characters. Used to hash OTP codes. |
 | `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET_KEY`, `RECAPTCHA_THRESHOLD` | reCAPTCHA v3. The secret stays on the server. The hostname registered with Google must match `HTTP_HOST` without the port. |
+| `RECAPTCHA_VERIFY_URL` | Optional. Used only when `APP_ENV` is exactly `local` and the value starts with `http://127.0.0.1`. Automated QA points this at a local siteverify stub. Every other environment keeps the Google URL. |
 | `OTP_TTL_MINUTES` | Default `5`. |
 | `OTP_ENFORCE` | `1` sends a sign-in code. `0` skips only that code and shows a warning to administrators. Password, captcha, and lockout still apply. |
 | `CORE_HR_DB_*` | Database connection. |

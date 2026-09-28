@@ -55,7 +55,12 @@ function recaptcha_verify(string $expectedAction, ?string $token = null): bool
             return $fail('network');
         }
 
-        $handle = curl_init('https://www.google.com/recaptcha/api/siteverify');
+        $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+        $override = security_env('RECAPTCHA_VERIFY_URL', '');
+        if ($override !== '' && security_is_local() && preg_match('#^http://127\\.0\\.0\\.1(?::\\d+)?/#', $override) === 1) {
+            $verifyUrl = $override;
+        }
+        $handle = curl_init($verifyUrl);
         if ($handle === false) {
             return $fail('network');
         }
